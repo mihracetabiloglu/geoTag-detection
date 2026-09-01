@@ -65,7 +65,7 @@ class GeoTagDetectionExecutor(Component):
         geo_detections = []
         features = []
 
-        if not predictions:
+        if predictions is None or len(predictions) == 0:
             return geo_detections, {"type": "FeatureCollection", "features": features}
 
         for pred in predictions:
@@ -128,7 +128,15 @@ class GeoTagDetectionExecutor(Component):
     def run(self):
         img = Image.get_frame(img=self.image, redis_db=self.redis_db)
 
-        self.geo_detections, self.geojson = self.compute_geotags(img.value, self.predictions)
+        shape = img.value.shape
+      
+        if len(shape) == 4:
+            img_h, img_w = shape[1], shape[2]
+       
+        else:
+            img_h, img_w = shape[0], shape[1]
+
+        self.geo_detections, self.geojson = self.compute_geotags((img_h, img_w), self.predictions)
 
         packageModel = build_response(context=self)
         return packageModel
