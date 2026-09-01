@@ -5,16 +5,17 @@ from sdks.novavision.src.base.model import Package, Image, Inputs, Configs, Outp
 
 class InputImage(Input):
     name: Literal["inputImage"] = "inputImage"
-    value: Union[List[Image], Image]
+    value: Union[List[Image], Image, None] = None
     type: str = "object"
 
     @validator("type", pre=True, always=True)
-    def set_type_based_on_value(cls, value, values):
-        value = values.get('value')
-        if isinstance(value, Image):
+    def set_type_based_on_value(cls, v, values):
+        val = values.get('value')
+        if isinstance(val, Image):
             return "object"
-        elif isinstance(value, list):
+        elif isinstance(val, list):
             return "list"
+        return "object"
 
     class Config:
         title = "Image"
@@ -134,7 +135,7 @@ class GeoTagDetectionInputs(Inputs):
     predictions: InputPredictions
 
 
-class GeoTagDetectionConfigs(Configs):
+class TaskConfigs(Configs):
     latitude: Latitude
     longitude: Longitude
     altitude: Altitude
@@ -149,7 +150,7 @@ class GeoTagDetectionOutputs(Outputs):
 
 class GeoTagDetectionRequest(Request):
     inputs: Optional[GeoTagDetectionInputs]
-    configs: GeoTagDetectionConfigs
+    configs: TaskConfigs
 
     class Config:
         json_schema_extra = {
@@ -160,6 +161,7 @@ class GeoTagDetectionRequest(Request):
 class GeoTagDetectionResponse(Response):
     outputs: GeoTagDetectionOutputs
 
+
 class GeoTagDetectionExecutor(Config):
     name: Literal["GeoTagDetectionExecutor"] = "GeoTagDetectionExecutor"
     value: Union[GeoTagDetectionRequest, GeoTagDetectionResponse]
@@ -167,7 +169,7 @@ class GeoTagDetectionExecutor(Config):
     field: Literal["option"] = "option"
 
     class Config:
-        title = "GeoTag Detection Executor"
+        title = "GeoTag Detection"
         json_schema_extra = {
             "target": {
                 "value": 0
@@ -187,11 +189,12 @@ class ConfigExecutor(Config):
             "target": "value"
         }
 
+
 class PackageConfigs(Configs):
     executor: ConfigExecutor
-    
+
+
 class PackageModel(Package):
-    configs: GeoTagDetectionConfigs
-    outputs: GeoTagDetectionOutputs
+    configs: PackageConfigs
     type: Literal["component"] = "component"
     name: Literal["GeoTagDetection"] = "GeoTagDetection"

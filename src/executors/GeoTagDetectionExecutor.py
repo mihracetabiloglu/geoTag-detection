@@ -16,15 +16,21 @@ class GeoTagDetectionExecutor(Component):
     def __init__(self, request, bootstrap):
         super().__init__(request, bootstrap)
         self.request.model = PackageModel(**(self.request.data))
-        
+
         self.latitude = self.request.get_param("latitude")
         self.longitude = self.request.get_param("longitude")
         self.altitude = self.request.get_param("altitude")
         self.horizontal_fov = self.request.get_param("horizontal_fov")
         self.heading = self.request.get_param("heading")
-    
+
         self.image = self.request.get_param("inputImage")
         self.predictions = self.request.get_param("predictions")
+
+        # plain instance attributes, filled in by compute_geotags() and
+        # read directly by build_response() (context.geo_detections /
+        # context.geojson) — mirrors CountPixelExecutor.matching_pixels_count
+        self.geo_detections = []
+        self.geojson = {"type": "FeatureCollection", "features": []}
 
     @staticmethod
     def bootstrap(config: dict) -> dict:
@@ -32,13 +38,13 @@ class GeoTagDetectionExecutor(Component):
 
     def compute_geotags(self, img_shape, predictions):
         img_h, img_w = img_shape[:2]
-        
+
         if self.altitude <= 0:
             return [], {"type": "FeatureCollection", "features": []}
 
         hfov_rad = math.radians(self.horizontal_fov)
         ground_width = 2.0 * self.altitude * math.tan(hfov_rad / 2.0)
-        
+
         aspect_ratio = img_h / img_w if img_w > 0 else 1.0
         ground_height = ground_width * aspect_ratio
 
@@ -69,7 +75,7 @@ class GeoTagDetectionExecutor(Component):
             class_name = pred.get("class", "object")
 
             dx_px = pred_x - cx
-            dy_px = cy - pred_y  
+            dy_px = cy - pred_y
 
             dx_m = dx_px * m_per_pixel_x
             dy_m = dy_px * m_per_pixel_y
@@ -120,13 +126,9 @@ class GeoTagDetectionExecutor(Component):
         return geo_detections, geojson_output
 
     def run(self):
-      
         img = Image.get_frame(img=self.image, redis_db=self.redis_db)
-        
-        geo_detections, geojson_output = self.compute_geotags(img.value, self.predictions)
-       
-        self.request.model.outputs.geo_detections.value = geo_detections
-        self.request.model.outputs.geojson.value = geojson_output
+
+        self.geo_detections, self.geojson = self.compute_geotags(img.value, self.predictions)
 
         packageModel = build_response(context=self)
         return packageModel
