@@ -1,4 +1,3 @@
-
 from pydantic import Field, validator
 from typing import List, Optional, Union, Literal
 from sdks.novavision.src.base.model import Package, Image, Inputs, Configs, Outputs, Response, Request, Output, Input, Config
@@ -21,86 +20,136 @@ class InputImage(Input):
         title = "Image"
 
 
-class OutputImage(Output):
-    name: Literal["outputImage"] = "outputImage"
-    value: Union[List[Image],Image]
-    type: str = "object"
-
-    @validator("type", pre=True, always=True)
-    def set_type_based_on_value(cls, value, values):
-        value = values.get('value')
-        if isinstance(value, Image):
-            return "object"
-        elif isinstance(value, list):
-            return "list"
-
-    class Config:
-        title = "Image"
-
-
-class KeepSideFalse(Config):
-    name: Literal["False"] = "False"
-    value: Literal[False] = False
-    type: Literal["bool"] = "bool"
-    field: Literal["option"] = "option"
-
-    class Config:
-        title = "Disable"
-
-
-class KeepSideTrue(Config):
-    name: Literal["True"] = "True"
-    value: Literal[True] = True
-    type: Literal["bool"] = "bool"
-    field: Literal["option"] = "option"
-
-    class Config:
-        title = "Enable"
-
-
-class KeepSideBBox(Config):
+class InputPredictions(Input):
     """
-        Rotate image without catting off sides.
+    Detection predictions coming from an upstream detection component
+    (e.g. bounding boxes with x, y, width, height, confidence, class).
+    NOTE: if the SDK already exposes a typed Prediction/Detection model
+    (e.g. sdks.novavision.src.media.prediction.Prediction), swap the
+    `List[dict]` below for `List[Prediction]` to get proper validation.
     """
-    name: Literal["KeepSide"] = "KeepSide"
-    value: Union[KeepSideTrue, KeepSideFalse]
+    name: Literal["predictions"] = "predictions"
+    value: List[dict] = []
+    type: Literal["list"] = "list"
+
+    class Config:
+        title = "Predictions"
+
+
+class OutputGeoDetections(Output):
+    name: Literal["geo_detections"] = "geo_detections"
+    value: List[dict] = []
+    type: Literal["list"] = "list"
+
+    class Config:
+        title = "Geo Detections"
+
+
+class OutputGeojson(Output):
+    name: Literal["geojson"] = "geojson"
+    value: dict = {}
     type: Literal["object"] = "object"
-    field: Literal["dropdownlist"] = "dropdownlist"
 
     class Config:
-        title = "Keep Sides"
+        title = "GeoJSON"
 
 
-class Degree(Config):
+class Latitude(Config):
     """
-        Positive angles specify counterclockwise rotation while negative angles indicate clockwise rotation.
+    GPS latitude of the camera position in decimal degrees.
+    Positive values are North, negative are South.
     """
-    name: Literal["Degree"] = "Degree"
-    value: int = Field(ge=-359.0, le=359.0,default=0)
+    name: Literal["latitude"] = "latitude"
+    value: float = Field(ge=-90.0, le=90.0, default=0.0)
     type: Literal["number"] = "number"
     field: Literal["textInput"] = "textInput"
-    placeHolder: Literal["[-359, 359]"] = "[-359, 359]"
+    placeHolder: Literal["[-90, 90]"] = "[-90, 90]"
 
     class Config:
-        title = "Angle"
+        title = "Latitude"
 
 
-class PackageInputs(Inputs):
+class Longitude(Config):
+    """
+    GPS longitude of the camera position in decimal degrees.
+    Positive values are East, negative are West.
+    """
+    name: Literal["longitude"] = "longitude"
+    value: float = Field(ge=-180.0, le=180.0, default=0.0)
+    type: Literal["number"] = "number"
+    field: Literal["textInput"] = "textInput"
+    placeHolder: Literal["[-180, 180]"] = "[-180, 180]"
+
+    class Config:
+        title = "Longitude"
+
+
+class Altitude(Config):
+    """
+    Camera altitude above ground level in meters. For drones, this is
+    the relative altitude reported by the flight controller.
+    """
+    name: Literal["altitude"] = "altitude"
+    value: float = Field(gt=0.0, default=50.0)
+    type: Literal["number"] = "number"
+    field: Literal["textInput"] = "textInput"
+    placeHolder: Literal["> 0"] = "> 0"
+
+    class Config:
+        title = "Altitude"
+
+
+class HorizontalFov(Config):
+    """
+    Horizontal field of view of the camera in degrees. Default 73.7
+    covers most DJI consumer drones (Mini, Air, Mavic series).
+    """
+    name: Literal["horizontal_fov"] = "horizontal_fov"
+    value: float = Field(gt=0.0, lt=180.0, default=73.7)
+    type: Literal["number"] = "number"
+    field: Literal["textInput"] = "textInput"
+    placeHolder: Literal["(0, 180)"] = "(0, 180)"
+
+    class Config:
+        title = "Horizontal FOV"
+
+
+class Heading(Config):
+    """
+    Compass bearing that the top of the image points toward, in degrees
+    clockwise from true north. 0 means image-up is North.
+    """
+    name: Literal["heading"] = "heading"
+    value: float = Field(ge=0.0, le=360.0, default=0.0)
+    type: Literal["number"] = "number"
+    field: Literal["textInput"] = "textInput"
+    placeHolder: Literal["[0, 360]"] = "[0, 360]"
+
+    class Config:
+        title = "Heading"
+
+
+class GeoTagDetectionInputs(Inputs):
     inputImage: InputImage
+    predictions: InputPredictions
 
 
-class PackageConfigs(Configs):
-    degree: Degree
-    drawBBox: KeepSideBBox
+class GeoTagDetectionConfigs(Configs):
+    latitude: Latitude
+    longitude: Longitude
+    altitude: Altitude
+    horizontal_fov: HorizontalFov
+    heading: Heading
 
 
-class PackageOutputs(Outputs):
-    outputImage: OutputImage
+class GeoTagDetectionOutputs(Outputs):
+    geo_detections: OutputGeoDetections
+    geojson: OutputGeojson
 
 
-class PackageRequest(Request):
-    inputs: Optional[PackageInputs]
-    configs: PackageConfigs
+class GeoTagDetectionRequest(Request):
+    inputs: Optional[GeoTagDetectionInputs]
+    configs: GeoTagDetectionConfigs
 
     class Config:
         json_schema_extra = {
@@ -108,18 +157,17 @@ class PackageRequest(Request):
         }
 
 
-class PackageResponse(Response):
-    outputs: PackageOutputs
+class GeoTagDetectionResponse(Response):
+    outputs: GeoTagDetectionOutputs
 
-
-class PackageExecutor(Config):
-    name: Literal["Package"] = "Package"
-    value: Union[PackageRequest, PackageResponse]
+class GeoTagDetectionExecutor(Config):
+    name: Literal["GeoTagDetectionExecutor"] = "GeoTagDetectionExecutor"
+    value: Union[GeoTagDetectionRequest, GeoTagDetectionResponse]
     type: Literal["object"] = "object"
     field: Literal["option"] = "option"
 
     class Config:
-        title = "Package"
+        title = "GeoTag Detection Executor"
         json_schema_extra = {
             "target": {
                 "value": 0
@@ -129,7 +177,7 @@ class PackageExecutor(Config):
 
 class ConfigExecutor(Config):
     name: Literal["ConfigExecutor"] = "ConfigExecutor"
-    value: Union[PackageExecutor]
+    value: Union[GeoTagDetectionExecutor]
     type: Literal["executor"] = "executor"
     field: Literal["dependentDropdownlist"] = "dependentDropdownlist"
 
@@ -139,12 +187,11 @@ class ConfigExecutor(Config):
             "target": "value"
         }
 
-
 class PackageConfigs(Configs):
     executor: ConfigExecutor
-
-
+    
 class PackageModel(Package):
-    configs: PackageConfigs
+    configs: GeoTagDetectionConfigs
+    outputs: GeoTagDetectionOutputs
     type: Literal["component"] = "component"
-    name: Literal["Package"] = "Package"
+    name: Literal["GeoTagDetection"] = "GeoTagDetection"

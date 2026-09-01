@@ -1,15 +1,21 @@
-
 from sdks.novavision.src.helper.package import PackageHelper
-from components.Package.src.models.PackageModel import PackageModel, PackageConfigs, ConfigExecutor, PackageOutputs, PackageResponse, PackageExecutor, OutputImage
+from components.GeoTagDetection.src.models.PackageModel import (
+    PackageModel,
+    OutputGeoDetections,
+    OutputGeojson,
+    GeoTagDetectionOutputs,
+    GeoTagDetectionResponse,
+    PackageConfigs
+)
 
 
 def build_response(context):
-    outputImage = OutputImage(value=context.image)
-    Outputs = PackageOutputs(outputImage=outputImage)
-    packageResponse = PackageResponse(outputs=Outputs)
-    packageExecutor = PackageExecutor(value=packageResponse)
-    executor = ConfigExecutor(value=packageExecutor)
-    packageConfigs = PackageConfigs(executor=executor)
-    package = PackageHelper(packageModel=PackageModel, packageConfigs=packageConfigs)
+    output_geo_detection = OutputGeoDetections(value = context.geo_detections)
+    output_geojson = OutputGeojson(value = context.geojson)
+    outputs = GeoTagDetectionOutputs(geo_detections = output_geo_detection, geojson = output_geojson)
+    geoTagDetectionResponse = GeoTagDetectionResponse(outputs=outputs)
+    geoTagDetectionExecutor =geoTagDetectionExecutor(value=geoTagDetectionResponse)
+    packageConfigs = PackageConfigs(executor=geoTagDetectionExecutor)
+    package = PackageHelper(packageModel=PackageModel, geoTagDetectionResponse=geoTagDetectionResponse)
     packageModel = package.build_model(context)
     return packageModel
